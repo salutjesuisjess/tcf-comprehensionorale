@@ -304,6 +304,29 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 /* SCROLLBAR */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* SELECTION MODE */
+.nav-btn.selected {
+  background: rgba(251,146,60,0.2) !important;
+  border-color: rgba(251,146,60,0.6) !important;
+  color: #fb923c !important;
+  outline: 2px solid rgba(251,146,60,0.4);
+}
+.selection-bar {
+  display: none; align-items: center; gap: 0.5rem;
+  padding: 0.45rem 0.8rem; background: rgba(251,146,60,0.1);
+  border-bottom: 1px solid rgba(251,146,60,0.3); flex-shrink: 0;
+}
+.selection-bar.active { display: flex; }
+.selection-count { font-size: 0.75rem; color: #fb923c; font-family: 'IBM Plex Mono', monospace; flex: 1; }
+.sel-btn {
+  font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 6px;
+  border: 1px solid; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600;
+}
+.sel-btn-cancel { background: var(--surface2); border-color: var(--border2); color: var(--muted); }
+.sel-btn-cancel:hover { color: var(--text); }
+.sel-btn-reset { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.4); color: var(--red); }
+.sel-btn-reset:hover { background: rgba(239,68,68,0.2); }
 </style>
 </head>
 <body>
@@ -328,6 +351,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     <div style="width:90px;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;">
       <div id="progress-bar-fill" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width 0.3s;"></div>
     </div>
+    <button class="topbar-btn" onclick="toggleSelectionMode()" id="sel-mode-btn" title="Selecionar questões para resetar" style="padding:0.3rem 0.6rem;font-size:0.75rem;">☑️</button>
     <button class="topbar-btn" onclick="clearProgress()" title="Apagar histórico" style="padding:0.3rem 0.6rem;font-size:0.75rem;">🗑️</button>
   <button class="topbar-btn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema" style="padding:0.3rem 0.6rem;font-size:0.75rem;">☀️</button>
   </div>
@@ -399,6 +423,11 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
         <button class="nav-tab" data-tab="done" onclick="setTab('done')">Feitas</button>
         <button class="nav-tab" data-tab="wrong" onclick="setTab('wrong')" id="tab-wrong-btn">Erradas</button>
       </div>
+      <div class="selection-bar" id="selection-bar">
+        <span class="selection-count" id="selection-count">0 selecionadas</span>
+        <button class="sel-btn sel-btn-cancel" onclick="cancelSelection()">Cancelar</button>
+        <button class="sel-btn sel-btn-reset" onclick="resetSelected()">Resetar</button>
+      </div>
       <div class="nav-grid-wrap">
         <div class="nav-grid" id="nav-grid"></div>
       </div>
@@ -422,6 +451,8 @@ let currentIndex = 0;
 let answered = {}; // id -> 'correct' | 'wrong'
 let activeTab = 'all';
 let activeGroup = 'beginner'; // 'beginner' = A1-B1, 'advanced' = B2-C2
+let selectionMode = false;
+let selectedIds = new Set();
 
 // ── PERSISTÊNCIA LOCAL ──
 const STORAGE_KEY = 'tcf_progress';
@@ -439,6 +470,60 @@ function loadProgress() {
       answered = JSON.parse(saved);
     }
   } catch(e) { answered = {}; }
+}
+
+function toggleSelectionMode() {
+  selectionMode = !selectionMode;
+  selectedIds.clear();
+  const btn = document.getElementById('sel-mode-btn');
+  const bar = document.getElementById('selection-bar');
+  if (selectionMode) {
+    btn.style.borderColor = '#fb923c';
+    btn.style.color = '#fb923c';
+    bar.classList.add('active');
+  } else {
+    btn.style.borderColor = '';
+    btn.style.color = '';
+    bar.classList.remove('active');
+  }
+  updateSelectionCount();
+  renderNav();
+}
+
+function cancelSelection() {
+  selectionMode = false;
+  selectedIds.clear();
+  const btn = document.getElementById('sel-mode-btn');
+  btn.style.borderColor = '';
+  btn.style.color = '';
+  document.getElementById('selection-bar').classList.remove('active');
+  renderNav();
+}
+
+function resetSelected() {
+  if (selectedIds.size === 0) return;
+  if (!confirm(`Resetar ${selectedIds.size} questão(ões) selecionada(s)?`)) return;
+  selectedIds.forEach(id => {
+    delete answered[id];
+    delete answered[id + '_chosen'];
+  });
+  saveProgress();
+  cancelSelection();
+  const list = getTabFiltered();
+  if (list.length) showQuestion(Math.min(currentIndex, list.length - 1));
+  updateProgressBar();
+}
+
+function updateSelectionCount() {
+  const el = document.getElementById('selection-count');
+  if (el) el.textContent = `${selectedIds.size} selecionada(s)`;
+}
+
+function toggleSelectQuestion(qId) {
+  if (selectedIds.has(qId)) selectedIds.delete(qId);
+  else selectedIds.add(qId);
+  updateSelectionCount();
+  renderNav();
 }
 
 function clearProgress() {
@@ -549,7 +634,12 @@ function renderNav() {
     if (status === 'correct') btn.classList.add('done');
     else if (status === 'wrong') btn.classList.add('wrong-done');
     if (globalIdx === currentIndex) btn.classList.add('active');
-    btn.onclick = () => showQuestion(globalIdx);
+    if (selectionMode) {
+      if (selectedIds.has(q.id)) btn.classList.add('selected');
+      btn.onclick = (e) => { e.stopPropagation(); toggleSelectQuestion(q.id); };
+    } else {
+      btn.onclick = () => showQuestion(globalIdx);
+    }
     grid.appendChild(btn);
   });
 
