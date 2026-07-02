@@ -885,20 +885,37 @@ function getProvaQuestions(n) {
   return list;
 }
 
+function getProvaStatus(n) {
+  const qs = getProvaQuestions(n);
+  if (!qs.length) return null;
+  const totalAnswered = qs.filter(q => answered[q.id]).length;
+  if (totalAnswered === qs.length) return 'blue'; // prova inteira respondida
+
+  const range = qs.filter(q => q.question_num >= 20 && q.question_num <= 39);
+  if (!range.length) return 'red';
+  const rangeAnswered = range.filter(q => answered[q.id]).length;
+  if (rangeAnswered === range.length) return 'green'; // 20-39 completas
+  if (rangeAnswered > 0) return 'yellow'; // 20-39 parcial
+  return 'red'; // 20-39 nada respondido
+}
+
 function populateProvaSelect() {
   const testNums = buildProvaIndex();
   const sel = document.getElementById('prova-filter');
   if (!sel) return;
   const prevValue = sel.value;
   sel.innerHTML = '<option value="">🎯 Test complet...</option>';
+  const STATUS_ICON = { blue: '🔵', green: '🟢', yellow: '🟡', red: '🔴' };
   testNums.forEach(n => {
     const qs = getProvaQuestions(n);
     if (!qs.length) return;
     const opt = document.createElement('option');
     opt.value = n;
+    const status = getProvaStatus(n);
+    const icon = status ? STATUS_ICON[status] + ' ' : '';
     opt.textContent = qs.length === 39
-      ? `Test ${n}`
-      : `Test ${n} (${qs.length}/39)`;
+      ? `${icon}Test ${n}`
+      : `${icon}Test ${n} (${qs.length}/39)`;
     sel.appendChild(opt);
   });
   sel.value = prevValue || '';
@@ -1251,6 +1268,7 @@ function selectOption(optList, letter, q) {
   renderNav();
   updateNavFooter();
   updateProgressBar();
+  populateProvaSelect();
 
   // Auto-advance nav page when all questions on current page are answered,
   // but do NOT change the center question — user presses "prochaine" manually.
