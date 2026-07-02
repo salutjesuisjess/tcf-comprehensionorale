@@ -77,6 +77,25 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .topbar-btn:hover { border-color: var(--accent); color: var(--accent); }
 .topbar-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .topbar-btn.primary:hover { opacity: 0.85; color: #fff; }
+.side-menu-wrap { position: relative; flex-shrink: 0; }
+.side-menu-btn {
+  background: transparent; border: none; color: var(--muted);
+  font-size: 1rem; line-height: 1; padding: 0.4rem 0.5rem; border-radius: 6px;
+  cursor: pointer; transition: color 0.2s, background 0.2s;
+}
+.side-menu-btn:hover { color: var(--accent); background: var(--surface2); }
+.side-menu-dropdown {
+  display: none; position: absolute; top: calc(100% + 6px); left: 0;
+  background: var(--surface); border: 1px solid var(--border2); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25); min-width: 240px; padding: 0.4rem; z-index: 100;
+}
+.side-menu-dropdown.open { display: block; }
+.side-menu-item {
+  display: block; padding: 0.55rem 0.7rem; border-radius: 6px;
+  font-size: 0.82rem; color: var(--text); text-decoration: none;
+  white-space: nowrap; transition: background 0.15s, color 0.15s;
+}
+.side-menu-item:hover { background: rgba(124,92,252,0.12); color: var(--accent); }
 
 /* ── UPLOAD SCREEN ── */
 #upload-screen {
@@ -408,6 +427,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 
 <!-- TOP BAR -->
 <div class="topbar">
+  <div class="side-menu-wrap" id="side-menu-wrap">
+    <button class="side-menu-btn" onclick="toggleSideMenu(event)" title="Autres outils">☰</button>
+    <div class="side-menu-dropdown" id="side-menu-dropdown">
+      <a class="side-menu-item" href="https://salutjesuisjess.github.io/tcf-expressionecrite/" target="_blank" rel="noopener">✍️ Pratiquer l'expression écrite</a>
+      <a class="side-menu-item" href="https://salutjesuisjess.github.io/tcf-expressionorale/" target="_blank" rel="noopener">🎙️ L'expression orale</a>
+    </div>
+  </div>
   <div class="topbar-logo">TCF <span>Canada</span></div>
   <div class="topbar-tag">Compréhension Orale</div>
   <input type="text" class="topbar-search" id="search" placeholder="Rechercher..." oninput="doSearch()">
@@ -889,14 +915,31 @@ function getProvaStatus(n) {
   const qs = getProvaQuestions(n);
   if (!qs.length) return null;
   const totalAnswered = qs.filter(q => answered[q.id]).length;
-  if (totalAnswered === qs.length) return 'blue'; // prova inteira respondida
 
   const range = qs.filter(q => q.question_num >= 20 && q.question_num <= 39);
   if (!range.length) return 'red';
   const rangeAnswered = range.filter(q => answered[q.id]).length;
-  if (rangeAnswered === range.length) return 'green'; // 20-39 completas
-  if (rangeAnswered > 0) return 'yellow'; // 20-39 parcial
-  return 'red'; // 20-39 nada respondido
+  const rangeWrong = range.filter(q => answered[q.id] === 'wrong').length;
+  const rangeCorrect = range.filter(q => answered[q.id] === 'correct').length;
+
+  // Nenhuma questão de 20-39 respondida ainda.
+  if (rangeAnswered === 0) return 'red';
+
+  const examComplete = totalAnswered === qs.length;
+
+  if (examComplete) {
+    // Prova toda respondida: azul se não há nenhum erro em 20-39,
+    // roxo se ainda houver respostas erradas em 20-39.
+    return rangeWrong > 0 ? 'purple' : 'blue';
+  }
+
+  // Prova ainda incompleta.
+  if (rangeAnswered === range.length && rangeCorrect === range.length) {
+    return 'green'; // 20-39 completas e corretas, mas falta o resto da prova
+  }
+
+  // 20-39 ainda incompletas, OU completas mas com algum erro (prova não terminada).
+  return 'yellow';
 }
 
 function populateProvaSelect() {
@@ -905,7 +948,7 @@ function populateProvaSelect() {
   if (!sel) return;
   const prevValue = sel.value;
   sel.innerHTML = '<option value="">🎯 Test complet...</option>';
-  const STATUS_ICON = { blue: '🔵', green: '🟢', yellow: '🟡', red: '🔴' };
+  const STATUS_ICON = { blue: '🔵', green: '🟢', yellow: '🟡', red: '🔴', purple: '🟣' };
   testNums.forEach(n => {
     const qs = getProvaQuestions(n);
     if (!qs.length) return;
@@ -1029,6 +1072,19 @@ function toggleTheme() {
   btn.textContent = isLight ? '🌙' : '☀️';
   try { localStorage.setItem('tcf_theme', isLight ? 'light' : 'dark'); } catch(e) {}
 }
+
+function toggleSideMenu(evt) {
+  if (evt) evt.stopPropagation();
+  const dd = document.getElementById('side-menu-dropdown');
+  if (dd) dd.classList.toggle('open');
+}
+document.addEventListener('click', function(evt) {
+  const wrap = document.getElementById('side-menu-wrap');
+  const dd = document.getElementById('side-menu-dropdown');
+  if (dd && dd.classList.contains('open') && wrap && !wrap.contains(evt.target)) {
+    dd.classList.remove('open');
+  }
+});
 
 function setTab(tab) {
   activeTab = tab;
