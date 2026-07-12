@@ -376,6 +376,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .prova-score-big { font-size: 2.4rem; font-weight: 800; color: var(--accent); line-height: 1; }
 .prova-score-max { font-size: 1rem; color: var(--muted); font-weight: 500; }
 .prova-score-row { display: flex; align-items: baseline; gap: 0.4rem; margin-bottom: 1.2rem; }
+.prova-clb-inline { margin-left: auto; font-size: 2.4rem; font-weight: 800; color: var(--accent); line-height: 1; }
 .prova-level-table { width: 100%; border-collapse: collapse; margin-top: 0.6rem; }
 .prova-level-table th, .prova-level-table td {
   text-align: left; padding: 0.4rem 0.5rem; font-size: 0.8rem; border-bottom: 1px solid var(--border);
@@ -573,6 +574,41 @@ let activeProva = null;        // null = normal mode, or a test number (e.g. 5)
 let provaIndexMap = null;      // "testN_qQ" -> question object
 let provaResultShown = false;  // avoid auto-popping the modal repeatedly
 const POINTS_BY_LEVEL = { A1: 3, A2: 9, B1: 15, B2: 21, C1: 26, C2: 33 };
+// Barème officiel par position de la question dans le test (1-39), utilisé
+// uniquement en mode "Test complet" (prova individuelle).
+const POINTS_BY_RANGE = [
+  { min: 1,  max: 4,  pts: 3  },
+  { min: 5,  max: 10, pts: 9  },
+  { min: 11, max: 19, pts: 15 },
+  { min: 20, max: 29, pts: 21 },
+  { min: 30, max: 35, pts: 26 },
+  { min: 36, max: 39, pts: 33 },
+];
+function getRangeForQuestionNum(qn) {
+  return POINTS_BY_RANGE.find(r => qn >= r.min && qn <= r.max) || null;
+}
+function getPointsForQuestionNum(qn) {
+  const r = getRangeForQuestionNum(qn);
+  return r ? r.pts : 0;
+}
+function getRangeLabel(qn) {
+  const r = getRangeForQuestionNum(qn);
+  return r ? `${r.min}-${r.max}` : '?';
+}
+// Échelle NCLC/CLB officielle (Compréhension de l'oral, score sur 699).
+const NCLC_SCALE = [
+  { min: 549, max: 699, label: '10 et plus' },
+  { min: 523, max: 548, label: '9' },
+  { min: 503, max: 522, label: '8' },
+  { min: 458, max: 502, label: '7' },
+  { min: 398, max: 457, label: '6' },
+  { min: 369, max: 397, label: '5' },
+  { min: 331, max: 368, label: '4' },
+];
+function getNCLCLevel(score) {
+  const found = NCLC_SCALE.find(r => score >= r.min && score <= r.max);
+  return found ? found.label : (score > 699 ? '10 et plus' : 'Moins de 4');
+}
 
 // ── PERSISTÊNCIA LOCAL ──
 const STORAGE_KEY = 'tcf_progress';
@@ -1006,29 +1042,30 @@ function onProvaChange() {
 function computeProvaResult() {
   const qs = getProvaQuestions(activeProva);
   let earned = 0, max = 0, answeredCount = 0;
-  const byLevel = {};
+  const byRange = {};
   qs.forEach(q => {
-    const pts = POINTS_BY_LEVEL[q.level] || 0;
+    const pts = getPointsForQuestionNum(q.question_num);
+    const label = getRangeLabel(q.question_num);
     max += pts;
-    if (!byLevel[q.level]) byLevel[q.level] = { correct: 0, total: 0, pts };
-    byLevel[q.level].total++;
+    if (!byRange[label]) byRange[label] = { correct: 0, total: 0, pts, order: q.question_num };
+    byRange[label].total++;
     if (answered[q.id]) answeredCount++;
     if (answered[q.id] === 'correct') {
       earned += pts;
-      byLevel[q.level].correct++;
+      byRange[label].correct++;
     }
   });
-  return { earned, max, byLevel, total: qs.length, answeredCount };
+  return { earned, max, byRange, total: qs.length, answeredCount };
 }
 
 function showProvaResult() {
   if (!activeProva) return;
   const r = computeProvaResult();
-  const order = ['A1','A2','B1','B2','C1','C2'];
-  const rows = order.filter(l => r.byLevel[l]).map(l => {
-    const b = r.byLevel[l];
+  const order = ['1-4','5-10','11-19','20-29','30-35','36-39'];
+  const rows = order.filter(l => r.byRange[l]).map(l => {
+    const b = r.byRange[l];
     return `<tr>
-      <td><span class="level-pill pill-${l}">${l}</span></td>
+      <td><span class="level-pill">Q${l}</span></td>
       <td>${b.correct} / ${b.total}</td>
       <td>${b.pts} pts</td>
       <td>${b.correct * b.pts} pts</td>
@@ -1036,25 +1073,34 @@ function showProvaResult() {
   }).join('');
   const pct = r.max ? Math.round((r.earned / r.max) * 100) : 0;
   const incomplete = r.answeredCount < r.total
-    ? `<div class="prova-note">⚠️ ${r.total - r.answeredCount} question(s) de ce test n'ont pas encore été répondue(s). Le score ci-dessus reflète seulement ce qui a été répondu jusqu'à présent.</div>`
+    ? `<div class="prova-note">⚠️ ${r.total - r.answeredCount} question(s) de ce test n'ont pas encore été répondue(s). Elles sont comptées comme incorrectes (0 pt) dans le score et le niveau NCLC ci-dessus.</div>`
     : '';
   const missingNote = r.total < 39
     ? `<div class="prova-note">ℹ️ Ce test n'a que ${r.total}/39 questions disponibles dans les données chargées (les autres n'ont pas été retrouvées dans le jeu de données).</div>`
     : '';
+  const canShowNCLC = r.total === 39;
+  const clbInline = canShowNCLC
+    ? `<div class="prova-clb-inline">CLB: ${getNCLCLevel(r.earned)}</div>`
+    : '';
+  const nclcNote = canShowNCLC
+    ? ''
+    : `<div class="prova-note">ℹ️ Le niveau NCLC/CLB ne peut être estimé que lorsque les 39 questions du test sont disponibles dans les données chargées.</div>`;
   document.getElementById('prova-modal-content').innerHTML = `
     <h2>🏆 Résultat — Test ${activeProva}</h2>
     <div class="prova-sub">${r.answeredCount} / ${r.total} questions répondues</div>
     <div class="prova-score-row">
       <div class="prova-score-big">${r.earned}</div>
       <div class="prova-score-max">/ ${r.max} pts (${pct}%)</div>
+      ${clbInline}
     </div>
+    ${nclcNote}
     <table class="prova-level-table">
-      <thead><tr><th>Niveau</th><th>Réussies</th><th>Pts/question</th><th>Total</th></tr></thead>
+      <thead><tr><th>Questions</th><th>Réussies</th><th>Pts/question</th><th>Total</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     ${incomplete}
     ${missingNote}
-    <div class="prova-note">Score calculé sur la base de la valeur de chaque question par niveau (A1=3, A2=9, B1=15, B2=21, C1=26, C2=33), selon le barème officiel.</div>
+    <div class="prova-note">Score calculé selon le barème officiel par position de question (Q1-4=3, Q5-10=9, Q11-19=15, Q20-29=21, Q30-35=26, Q36-39=33).</div>
   `;
   document.getElementById('prova-modal-backdrop').classList.add('visible');
   provaResultShown = true;
