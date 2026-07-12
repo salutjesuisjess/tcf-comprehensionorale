@@ -437,7 +437,6 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   </div>
   <div class="topbar-logo">TCF <span>Canada</span></div>
   <div class="topbar-tag">Compréhension Orale</div>
-  <input type="text" class="topbar-search" id="search" placeholder="Rechercher..." oninput="doSearch()">
   <select class="topbar-select" id="level-filter" onchange="doSearch()">
     <option value="">Tous les niveaux</option>
     <option value="A1">A1 — 3 pts</option>
@@ -460,8 +459,6 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     <button class="topbar-btn" onclick="clearProgress()" title="Apagar histórico" style="padding:0.3rem 0.6rem;font-size:0.75rem;">🗑️</button>
   <button class="topbar-btn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema" style="padding:0.3rem 0.6rem;font-size:0.75rem;">☀️</button>
   </div>
-  <button class="topbar-btn primary" onclick="document.getElementById('file-input-hidden').click()">📂 Ouvrir Fichier</button>
-  <input type="file" id="file-input-hidden" accept=".json" onchange="loadJSON(event)" style="display:none">
 </div>
 
 <!-- UPLOAD SCREEN -->
@@ -668,6 +665,7 @@ function resetSelected() {
   const list = getTabFiltered();
   if (list.length) showQuestion(Math.min(currentIndex, list.length - 1));
   updateProgressBar();
+  populateProvaSelect();
 }
 
 function updateSelectionCount() {
@@ -690,6 +688,7 @@ function clearProgress() {
     const list = getTabFiltered();
     if (list.length) showQuestion(currentIndex);
     updateProgressBar();
+    populateProvaSelect();
     alert('Histórico apagado!');
   }
 }
@@ -756,13 +755,10 @@ function doSearch() {
     if (sel) sel.value = '';
     setProvaModeUI(false);
   }
-  const q = document.getElementById('search').value.toLowerCase();
   const lvl = document.getElementById('level-filter').value;
   filteredQuestions = allQuestions.filter(item => {
     const matchLvl = !lvl || item.level === lvl;
-    const searchText = [item.explanation||'', item.vocabulary||'', item.key_line_fr||'', item.key_line_en||''].join(' ').toLowerCase();
-    const matchQ = !q || searchText.includes(q);
-    return matchLvl && matchQ;
+    return matchLvl;
   });
   navPage = 0;
   renderNav();
