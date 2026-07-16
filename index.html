@@ -693,6 +693,81 @@ function clearProgress() {
   }
 }
 
+// ── UNIFICAÇÃO REAL DE PERGUNTAS DUPLICADAS ──
+// allQuestions já foi deduplicado por question_uuid (ver loadJSON), mas isso
+// não junta pares que têm question_uuid DIFERENTES mesmo sendo a mesma
+// pergunta (ex.: test13_q21 / test29_q21, unificadas manualmente via
+// also_appears_in). Aqui agrupamos por componentes conectados: dois itens
+// do pool de prática são "a mesma pergunta" se um aparece na lista
+// also_appears_in do outro (ou vice-versa) — e mantemos só UM representante
+// por grupo no pool de prática (allQuestions), então ele não aparece mais
+// duplicado no modo "perguntas únicas".
+function mergeDuplicateQuestions(qs) {
+  const byId = {};
+  qs.forEach(q => { byId[q.id] = q; });
+  const parent = {};
+  qs.forEach(q => { parent[q.id] = q.id; });
+  function find(x) {
+    while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+    return x;
+  }
+  function union(a, b) {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  }
+  qs.forEach(q => {
+    (q.also_appears_in || []).forEach(alt => {
+      // só une se o alt corresponder a outro item que realmente está no pool
+      // de prática; slots que não sobreviveram à dedup por question_uuid não
+      // entram aqui, então não inflam nem confundem os grupos.
+      if (Object.prototype.hasOwnProperty.call(byId, alt)) union(q.id, alt);
+    });
+  });
+  const groups = {};
+  qs.forEach(q => {
+    const r = find(q.id);
+    (groups[r] = groups[r] || []).push(q);
+  });
+  const merged = [];
+  const idRemap = {}; // id descartado -> id do representante (p/ migrar progresso salvo)
+  Object.keys(groups).forEach(r => {
+    const members = groups[r];
+    const rep = members[0]; // primeiro da ordem original = representante estável
+    if (members.length > 1) {
+      const altSet = new Set(rep.also_appears_in || []);
+      members.forEach(m => {
+        if (m !== rep) { altSet.add(m.id); idRemap[m.id] = rep.id; }
+        (m.also_appears_in || []).forEach(a => altSet.add(a));
+      });
+      altSet.delete(rep.id);
+      rep.also_appears_in = Array.from(altSet);
+    }
+    merged.push(rep);
+  });
+  return { merged, idRemap };
+}
+
+// Migra o progresso salvo (answered[]) de um id descartado para o id do
+// representante, sem perder respostas antigas já dadas em qualquer cópia.
+function migrateAnsweredState(idRemap) {
+  let changed = false;
+  Object.keys(idRemap).forEach(oldId => {
+    const newId = idRemap[oldId];
+    if (Object.prototype.hasOwnProperty.call(answered, oldId)) {
+      if (!Object.prototype.hasOwnProperty.call(answered, newId)) {
+        answered[newId] = answered[oldId];
+        if (Object.prototype.hasOwnProperty.call(answered, oldId + '_chosen')) {
+          answered[newId + '_chosen'] = answered[oldId + '_chosen'];
+        }
+      }
+      delete answered[oldId];
+      delete answered[oldId + '_chosen'];
+      changed = true;
+    }
+  });
+  if (changed && typeof saveProgress === 'function') saveProgress();
+}
+
 function updateProgressBar() {
   const total = allQuestions.length;
   if (!total) return;
@@ -728,6 +803,9 @@ function loadJSON(e) {
         seen.add(key);
         return true;
       });
+      const mergeResult1 = mergeDuplicateQuestions(allQuestions);
+      allQuestions = mergeResult1.merged;
+      migrateAnsweredState(mergeResult1.idRemap);
 
       // Atualiza UI
       document.getElementById('upload-screen').style.display = 'none';
@@ -1476,6 +1554,9 @@ window.addEventListener('DOMContentLoaded', function() {
       seen.add(key);
       return true;
     });
+    const mergeResult2 = mergeDuplicateQuestions(allQuestions);
+    allQuestions = mergeResult2.merged;
+    migrateAnsweredState(mergeResult2.idRemap);
     document.getElementById('upload-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     if(document.getElementById('nav-title')) document.getElementById('nav-title').textContent = 'Questions';
