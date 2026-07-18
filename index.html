@@ -422,9 +422,89 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     min-height: 280px;
   }
 }
+/* ── EMAIL GATE ── */
+#email-gate {
+  position: fixed; inset: 0; background: var(--bg); z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 0.9rem; padding: 2rem; text-align: center;
+}
+#email-gate .gate-logo { font-weight: 800; font-size: 1.3rem; margin-bottom: 0.4rem; }
+#email-gate .gate-logo span { color: var(--accent); }
+#email-gate h1 { font-size: 1.15rem; font-weight: 700; }
+#email-gate p { color: var(--muted); font-size: 0.88rem; max-width: 360px; line-height: 1.4; }
+#email-gate input {
+  width: 100%; max-width: 300px; padding: 0.7rem 1rem; border-radius: 8px;
+  border: 1px solid var(--border2); background: var(--surface2); color: var(--text);
+  font-size: 0.95rem; font-family: 'Inter', sans-serif;
+}
+#email-gate input:focus { outline: none; border-color: var(--accent); }
+#email-gate button {
+  padding: 0.7rem 1.7rem; border-radius: 8px; border: none; background: var(--accent);
+  color: #fff; font-weight: 600; cursor: pointer; font-size: 0.9rem;
+}
+#email-gate button:disabled { opacity: 0.6; cursor: not-allowed; }
+#email-gate .gate-err { color: var(--red); font-size: 0.82rem; min-height: 1.1em; }
 </style>
 </head>
 <body>
+
+<!-- EMAIL GATE -->
+<div id="email-gate">
+  <div class="gate-logo">TCF <span>Canada</span></div>
+  <h1>Acesso restrito</h1>
+  <p>Este catálogo é de uso pessoal e controlado. Informe seu email para continuar — o acesso fica registrado.</p>
+  <input type="email" id="gate-email" placeholder="seu@email.com" autocomplete="email">
+  <button id="gate-submit" onclick="submitGateEmail()">Entrar</button>
+  <div class="gate-err" id="gate-error"></div>
+</div>
+<script>
+(function () {
+  var FORM_ENDPOINT = "https://formspree.io/f/xqerzyaz";
+  var STORAGE_KEY = "tcf_access_email";
+  var gate = document.getElementById('email-gate');
+  var saved = localStorage.getItem(STORAGE_KEY);
+
+  function logAccess(email, tipo) {
+    fetch(FORM_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        tipo: tipo,
+        pagina: location.href,
+        quando: new Date().toISOString()
+      })
+    }).catch(function () {});
+  }
+
+  if (saved) {
+    gate.style.display = 'none';
+  }
+
+  window.submitGateEmail = function () {
+    var input = document.getElementById('gate-email');
+    var err = document.getElementById('gate-error');
+    var email = input.value.trim();
+    var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!re.test(email)) {
+      err.textContent = 'Digite um email válido.';
+      return;
+    }
+    err.textContent = '';
+    var btn = document.getElementById('gate-submit');
+    btn.disabled = true;
+    btn.textContent = 'Entrando...';
+    logAccess(email, 'primeiro_acesso');
+    localStorage.setItem(STORAGE_KEY, email);
+    setTimeout(function () { gate.style.display = 'none'; }, 400);
+  };
+
+  document.getElementById('gate-email').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') submitGateEmail();
+  });
+})();
+</script>
+
 
 <!-- TOP BAR -->
 <div class="topbar">
