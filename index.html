@@ -349,12 +349,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   outline: 2px solid rgba(251,146,60,0.4);
 }
 .selection-bar {
-  display: none; align-items: center; gap: 0.5rem;
+  display: none; align-items: center; gap: 0.5rem; flex-wrap: wrap;
   padding: 0.45rem 0.8rem; background: rgba(251,146,60,0.1);
   border-bottom: 1px solid rgba(251,146,60,0.3); flex-shrink: 0;
 }
 .selection-bar.active { display: flex; }
-.selection-count { font-size: 0.75rem; color: #fb923c; font-family: 'IBM Plex Mono', monospace; flex: 1; }
+.selection-count { font-size: 0.75rem; color: #fb923c; font-family: 'IBM Plex Mono', monospace; flex: 1 1 100%; }
+.sel-btn { flex-shrink: 0; }
 .sel-btn {
   font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 6px;
   border: 1px solid; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600;
@@ -363,6 +364,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .sel-btn-cancel:hover { color: var(--text); }
 .sel-btn-reset { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.4); color: var(--red); }
 .sel-btn-reset:hover { background: rgba(239,68,68,0.2); }
+.sel-btn-page { background: rgba(124,92,252,0.12); border-color: rgba(124,92,252,0.35); color: var(--accent); }
+.sel-btn-page:hover { background: rgba(124,92,252,0.22); }
 
 /* ── PROVA RESULT MODAL ── */
 .prova-modal-backdrop {
@@ -639,6 +642,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
       </div>
       <div class="selection-bar" id="selection-bar">
         <span class="selection-count" id="selection-count">0 selecionadas</span>
+        <button class="sel-btn sel-btn-page" id="sel-btn-page" onclick="selectAllOnPage()">Selecionar página</button>
         <button class="sel-btn sel-btn-cancel" onclick="cancelSelection()">Cancelar</button>
         <button class="sel-btn sel-btn-reset" onclick="resetSelected()">Resetar</button>
       </div>
@@ -675,6 +679,9 @@ let activeTab = 'all';
 let activeGroup = 'beginner'; // 'beginner' = A1-B1, 'advanced' = B2-C2
 let selectionMode = false;
 let selectedIds = new Set();
+let selectionAnchor = null;
+let selectionCursor = null;
+let selectionRangeIds = new Set();
 
 // ── PROVA COMPLÈTE (individual full test, Q01–Q39) ──
 let activeProva = null;        // null = normal mode, or a test number (e.g. 5)
@@ -756,6 +763,9 @@ function toggleSelectionMode() {
 function cancelSelection() {
   selectionMode = false;
   selectedIds.clear();
+  selectionAnchor = null;
+  selectionCursor = null;
+  selectionRangeIds = new Set();
   const btn = document.getElementById('sel-mode-btn');
   btn.style.borderColor = '';
   btn.style.color = '';
@@ -788,6 +798,59 @@ function toggleSelectQuestion(qId) {
   else selectedIds.add(qId);
   updateSelectionCount();
   renderNav();
+}
+
+function applySelectionRange(a, b) {
+  const list = getTabFiltered();
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  const newRangeIds = new Set();
+  for (let i = lo; i <= hi; i++) {
+    if (list[i]) newRangeIds.add(list[i].id);
+  }
+  // Remove ids that were part of the previous anchor→cursor stroke but are no longer in range
+  selectionRangeIds.forEach(id => {
+    if (!newRangeIds.has(id)) selectedIds.delete(id);
+  });
+  // Add ids newly covered by the range
+  newRangeIds.forEach(id => selectedIds.add(id));
+  selectionRangeIds = newRangeIds;
+  updateSelectionCount();
+  renderNav();
+}
+
+function selectAllOnPage() {
+  const list = getTabFiltered();
+  const start = navPage * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, list.length);
+  for (let i = start; i < end; i++) {
+    selectedIds.add(list[i].id);
+  }
+  updateSelectionCount();
+  renderNav();
+}
+
+function extendSelectionByKeyboard(delta) {
+  if (!selectionMode) return;
+  const list = getTabFiltered();
+  if (!list.length) return;
+  if (selectionAnchor === null) {
+    selectionAnchor = currentIndex;
+    selectionCursor = currentIndex;
+    selectionRangeIds = new Set();
+    if (list[selectionAnchor]) {
+      selectedIds.add(list[selectionAnchor].id);
+      selectionRangeIds.add(list[selectionAnchor].id);
+    }
+  }
+  let newCursor = selectionCursor + delta;
+  newCursor = Math.max(0, Math.min(list.length - 1, newCursor));
+  applySelectionRange(selectionAnchor, newCursor);
+  selectionCursor = newCursor;
+  currentIndex = newCursor;
+  navPage = Math.floor(newCursor / PAGE_SIZE);
+  renderNav();
+  const activeBtn = document.querySelector('.nav-btn.selected, .nav-btn.active');
+  if (activeBtn) activeBtn.scrollIntoView({block:'nearest'});
 }
 
 function clearProgress() {
@@ -960,6 +1023,7 @@ function doSearch() {
 
 // ── NAV GRID ──
 const PAGE_SIZE = 40;
+const NAV_GRID_COLS = 5; // deve bater com grid-template-columns do .nav-grid
 let navPage = 0;
 
 function renderNav() {
@@ -990,7 +1054,18 @@ function renderNav() {
     if (globalIdx === currentIndex) btn.classList.add('active');
     if (selectionMode) {
       if (selectedIds.has(q.id)) btn.classList.add('selected');
-      btn.onclick = (e) => { e.stopPropagation(); toggleSelectQuestion(q.id); };
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        if (e.shiftKey && selectionAnchor !== null) {
+          applySelectionRange(selectionAnchor, globalIdx);
+          selectionCursor = globalIdx;
+        } else {
+          toggleSelectQuestion(q.id);
+          selectionAnchor = globalIdx;
+          selectionCursor = globalIdx;
+          selectionRangeIds = selectedIds.has(q.id) ? new Set([q.id]) : new Set();
+        }
+      };
     } else {
       btn.onclick = () => showQuestion(globalIdx);
     }
@@ -1687,8 +1762,19 @@ function toggleTTS() {
 // Keyboard navigation
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'ArrowRight') navigate(1);
-  if (e.key === 'ArrowLeft') navigate(-1);
+  const isHorizNext = e.key === 'ArrowRight';
+  const isHorizPrev = e.key === 'ArrowLeft';
+  const isVertNext = e.key === 'ArrowDown';
+  const isVertPrev = e.key === 'ArrowUp';
+  if (selectionMode && e.shiftKey && (isHorizNext || isHorizPrev || isVertNext || isVertPrev)) {
+    e.preventDefault();
+    const delta = (isHorizNext || isVertNext) ? 1 : -1;
+    const step = (isVertNext || isVertPrev) ? NAV_GRID_COLS : 1;
+    extendSelectionByKeyboard(delta * step);
+    return;
+  }
+  if (isHorizNext || isVertNext) navigate(1);
+  if (isHorizPrev || isVertPrev) navigate(-1);
 });
 </script>
 
