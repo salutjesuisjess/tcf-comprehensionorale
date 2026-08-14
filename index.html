@@ -497,24 +497,54 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 #email-gate button:disabled { opacity: 0.6; cursor: not-allowed; }
 #email-gate .gate-err { color: var(--red); font-size: 0.82rem; min-height: 1.1em; }
 </style>
+<!-- ═══ FIREBASE (login por email + sincronização de progresso) ═══ -->
+<!-- Usa o MESMO projeto Firebase do site de Compréhension Écrite — mesmas
+     credenciais, mesmos usuários/logins, mas o progresso fica separado
+     (coleção "progress_co" em vez de "progress"). -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyD6MP2j6fdohnohbrODasOnSV86M04mZD4",
+    authDomain: "estudo-tcf-canada.firebaseapp.com",
+    projectId: "estudo-tcf-canada",
+    storageBucket: "estudo-tcf-canada.firebasestorage.app",
+    messagingSenderId: "558686756433",
+    appId: "1:558686756433:web:99290e3b452b6b2a112270"
+  };
+  window.__fbEnabled = firebaseConfig.apiKey !== "COLE_AQUI";
+  if (window.__fbEnabled) {
+    firebase.initializeApp(firebaseConfig);
+  }
+</script>
 </head>
 <body>
 
-<!-- EMAIL GATE -->
+<!-- EMAIL GATE / LOGIN -->
 <div id="email-gate">
   <div class="gate-logo">TCF <span>Canada</span></div>
   <h1>Acesso restrito</h1>
-  <p>Este catálogo é de uso pessoal e controlado. Informe seu email para continuar — o acesso fica registrado.</p>
-  <input type="email" id="gate-email" placeholder="seu@email.com" autocomplete="email">
-  <button id="gate-submit" onclick="submitGateEmail()">Entrar</button>
-  <div class="gate-err" id="gate-error"></div>
+  <p id="gate-desc">Este catálogo é de uso pessoal e controlado. Informe seu email para continuar — seu progresso fica salvo e sincronizado na sua conta.</p>
+
+  <div id="gate-form-default">
+    <input type="email" id="gate-email" placeholder="seu@email.com" autocomplete="email">
+    <button id="gate-submit" onclick="submitGateEmail()">Enviar link de acesso</button>
+    <div class="gate-err" id="gate-error"></div>
+  </div>
+
+  <div id="gate-form-sent" style="display:none;">
+    <p>Link enviado para <strong id="gate-sent-email"></strong>. Abra seu email neste mesmo dispositivo e clique no link para entrar.</p>
+    <button onclick="resetGateForm()" style="background:transparent;border:1px solid var(--border);color:var(--muted);">Usar outro email</button>
+  </div>
 </div>
 <script>
 (function () {
   var FORM_ENDPOINT = "https://formspree.io/f/xqerzyaz";
-  var STORAGE_KEY = "tcf_access_email";
+  var STORAGE_KEY = "tcf_access_email";           // acesso local antigo (sem conta)
+  var EMAIL_FOR_SIGNIN_KEY = "tcf_email_for_signin"; // email temporário p/ completar o link mágico
   var gate = document.getElementById('email-gate');
-  var saved = localStorage.getItem(STORAGE_KEY);
+  var savedLocalOnly = localStorage.getItem(STORAGE_KEY);
 
   function logAccess(email, tipo) {
     fetch(FORM_ENDPOINT, {
@@ -542,35 +572,96 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     }
   }
 
-  if (saved) {
+  function hideGate() {
     gate.style.display = 'none';
     tryPlayPendingAudio();
   }
+
+  window.__tcfHideGate = hideGate; // usado pelo bloco de sincronização mais abaixo
+
+  // ── MODO SEM FIREBASE CONFIGURADO (fallback: comportamento antigo) ──
+  if (!window.__fbEnabled) {
+    if (savedLocalOnly) hideGate();
+    window.submitGateEmail = function () {
+      var input = document.getElementById('gate-email');
+      var err = document.getElementById('gate-error');
+      var email = input.value.trim();
+      var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!re.test(email)) { err.textContent = 'Digite um email válido.'; return; }
+      err.textContent = '';
+      logAccess(email, 'primeiro_acesso_sem_firebase');
+      localStorage.setItem(STORAGE_KEY, email);
+      setTimeout(hideGate, 300);
+    };
+    document.getElementById('gate-email').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') submitGateEmail();
+    });
+    return;
+  }
+
+  // ── MODO COM FIREBASE (login por link mágico) ──
+  var actionCodeSettings = {
+    url: location.origin + location.pathname,
+    handleCodeInApp: true
+  };
 
   window.submitGateEmail = function () {
     var input = document.getElementById('gate-email');
     var err = document.getElementById('gate-error');
     var email = input.value.trim();
     var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!re.test(email)) {
-      err.textContent = 'Digite um email válido.';
-      return;
-    }
+    if (!re.test(email)) { err.textContent = 'Digite um email válido.'; return; }
     err.textContent = '';
     var btn = document.getElementById('gate-submit');
     btn.disabled = true;
-    btn.textContent = 'Entrando...';
-    logAccess(email, 'primeiro_acesso');
-    localStorage.setItem(STORAGE_KEY, email);
-    setTimeout(function () {
-      gate.style.display = 'none';
-      tryPlayPendingAudio();
-    }, 400);
+    btn.textContent = 'Enviando...';
+    firebase.auth().sendSignInLinkToEmail(email, actionCodeSettings).then(function () {
+      localStorage.setItem(EMAIL_FOR_SIGNIN_KEY, email);
+      logAccess(email, 'link_magico_enviado');
+      document.getElementById('gate-form-default').style.display = 'none';
+      document.getElementById('gate-form-sent').style.display = 'block';
+      document.getElementById('gate-sent-email').textContent = email;
+    }).catch(function (e) {
+      err.textContent = 'Não foi possível enviar o link (' + e.code + '). Tente novamente.';
+      btn.disabled = false;
+      btn.textContent = 'Enviar link de acesso';
+    });
+  };
+
+  window.resetGateForm = function () {
+    document.getElementById('gate-form-sent').style.display = 'none';
+    document.getElementById('gate-form-default').style.display = 'block';
+    var btn = document.getElementById('gate-submit');
+    btn.disabled = false;
+    btn.textContent = 'Enviar link de acesso';
   };
 
   document.getElementById('gate-email').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') submitGateEmail();
   });
+
+  // Completa o login se a página foi aberta a partir do link mágico do email
+  if (firebase.auth().isSignInWithEmailLink(window.location.href)) {
+    var email = localStorage.getItem(EMAIL_FOR_SIGNIN_KEY);
+    if (!email) {
+      // Link aberto em outro dispositivo/navegador: pede confirmação do email
+      email = window.prompt('Confirme seu email para concluir o login:');
+    }
+    if (email) {
+      firebase.auth().signInWithEmailLink(email, window.location.href).then(function () {
+        localStorage.removeItem(EMAIL_FOR_SIGNIN_KEY);
+        localStorage.setItem(STORAGE_KEY, email);
+        // limpa os parâmetros do link mágico da URL
+        history.replaceState(null, '', location.origin + location.pathname);
+      }).catch(function (e) {
+        document.getElementById('gate-error').textContent = 'Link inválido ou expirado (' + e.code + '). Peça um novo.';
+      });
+    }
+  }
+  // Se savedLocalOnly existir (login anterior por email), o gate só é escondido
+  // quando o Firebase confirmar a sessão de verdade via onAuthStateChanged
+  // (bloco de sincronização mais abaixo) — nunca com base só no localStorage,
+  // pra garantir que ninguém acesse sem uma sessão autenticada válida.
 })();
 </script>
 
@@ -784,6 +875,7 @@ function saveProgress() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(answered));
   } catch(e) { /* silently ignore */ }
+  if (window.__tcfSyncToCloud) window.__tcfSyncToCloud();
 }
 
 function loadProgress() {
@@ -802,6 +894,7 @@ function saveFlagged() {
   try {
     localStorage.setItem(FLAGGED_STORAGE_KEY, JSON.stringify(flagged));
   } catch(e) { /* silently ignore */ }
+  if (window.__tcfSyncToCloud) window.__tcfSyncToCloud();
 }
 
 function loadFlagged() {
@@ -881,6 +974,7 @@ function saveKnown() {
   try {
     localStorage.setItem(KNOWN_STORAGE_KEY, JSON.stringify(known));
   } catch(e) { /* silently ignore */ }
+  if (window.__tcfSyncToCloud) window.__tcfSyncToCloud();
 }
 
 function loadKnown() {
@@ -1036,6 +1130,7 @@ function clearProgress() {
   if (confirm('Tem certeza que quer apagar todo o histórico de respostas? Esta ação não pode ser desfeita.')) {
     answered = {};
     localStorage.removeItem(STORAGE_KEY);
+    if (window.__tcfSyncToCloud) window.__tcfSyncToCloud(); // também apaga na nuvem
     renderNav();
     const list = getTabFiltered();
     if (list.length) showQuestion(currentIndex);
@@ -2056,6 +2151,103 @@ window.addEventListener('DOMContentLoaded', function() {
     console.error('Erro ao inicializar:', err);
   }
 });
+</script>
+
+<!-- ═══ SINCRONIZAÇÃO NA NUVEM (Firebase) ═══ -->
+<script>
+(function () {
+  if (!window.__fbEnabled) return;
+
+  var PROGRESS_DOC = null; // referência do documento Firestore do usuário logado
+  var syncTimer = null;
+
+  // Coleção separada da Compréhension Écrite (mesmo projeto/login, progresso independente)
+  function getDocRef(uid) {
+    return firebase.firestore().collection('progress_co').doc(uid);
+  }
+
+  // Envia answered/flagged/known pra nuvem, com debounce pra não gravar a cada clique
+  function debouncedPush() {
+    if (!PROGRESS_DOC) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function () {
+      PROGRESS_DOC.set({
+        answered: answered,
+        flagged: flagged,
+        known: known,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(function (e) { console.warn('Falha ao sincronizar com a nuvem:', e); });
+    }, 800);
+  }
+  window.__tcfSyncToCloud = debouncedPush;
+
+  function renderAccountWidget(user) {
+    var wrap = document.getElementById('progress-wrap');
+    if (!wrap) return;
+    var existing = document.getElementById('account-widget');
+    if (existing) existing.remove();
+    var el = document.createElement('div');
+    el.id = 'account-widget';
+    el.style.cssText = 'display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;color:var(--muted);';
+    if (user) {
+      el.innerHTML =
+        '<span title="' + user.email + '" style="white-space:nowrap;">☁️ ' + user.email.split('@')[0] + '</span>' +
+        '<button class="topbar-btn" onclick="__tcfSignOut()" title="Sair da conta" style="padding:0.3rem 0.5rem;font-size:0.72rem;">Sair</button>';
+    } else {
+      el.innerHTML =
+        '<button class="topbar-btn" onclick="__tcfShowGateAgain()" title="Entrar / sincronizar progresso" style="padding:0.3rem 0.5rem;font-size:0.72rem;">🔒 Entrar</button>';
+    }
+    wrap.insertBefore(el, wrap.firstChild);
+  }
+
+  window.__tcfSignOut = function () {
+    firebase.auth().signOut().then(function () {
+      localStorage.removeItem('tcf_access_email');
+      location.reload();
+    });
+  };
+
+  window.__tcfShowGateAgain = function () {
+    var gate = document.getElementById('email-gate');
+    if (gate) gate.style.display = 'flex';
+  };
+
+  // Mescla o que veio da nuvem com o que já está em memória/localStorage.
+  // Em caso de conflito (mesma questão com valor diferente), a nuvem prevalece,
+  // mas nada que só existe localmente é perdido.
+  function mergeAndRefresh(remoteData) {
+    if (!remoteData) return;
+    answered = Object.assign({}, answered, remoteData.answered || {});
+    flagged = Object.assign({}, flagged, remoteData.flagged || {});
+    known = Object.assign({}, known, remoteData.known || {});
+
+    try { localStorage.setItem('tcf_progress', JSON.stringify(answered)); } catch (e) {}
+    try { localStorage.setItem('tcf_flagged', JSON.stringify(flagged)); } catch (e) {}
+    try { localStorage.setItem('tcf_known', JSON.stringify(known)); } catch (e) {}
+
+    if (typeof renderNav === 'function') renderNav();
+    if (typeof updateProgressBar === 'function') updateProgressBar();
+    if (typeof populateProvaSelect === 'function') populateProvaSelect();
+    if (typeof getTabFiltered === 'function' && typeof showQuestion === 'function' && typeof allQuestions !== 'undefined' && allQuestions.length) {
+      var list = getTabFiltered();
+      if (list.length && list[currentIndex]) showQuestion(currentIndex);
+    }
+  }
+
+  firebase.auth().onAuthStateChanged(function (user) {
+    renderAccountWidget(user);
+    if (user) {
+      if (window.__tcfHideGate) window.__tcfHideGate();
+      PROGRESS_DOC = getDocRef(user.uid);
+      PROGRESS_DOC.get().then(function (snap) {
+        if (snap.exists) mergeAndRefresh(snap.data());
+        debouncedPush(); // garante que o merge (e qualquer progresso local novo) suba pra nuvem
+      }).catch(function (e) { console.warn('Falha ao carregar progresso da nuvem:', e); });
+    } else {
+      PROGRESS_DOC = null;
+    }
+  });
+})();
 </script>
 </body>
 </html>
