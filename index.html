@@ -67,6 +67,17 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   padding: 0.45rem 0.7rem; cursor: pointer;
 }
 .topbar-spacer { flex: 1; }
+.topbar-review-btn {
+  display: flex; align-items: center; gap: 0.35rem;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 0.82rem; padding: 0.45rem 0.7rem; cursor: pointer;
+  transition: all 0.15s; white-space: nowrap; flex-shrink: 0;
+}
+.topbar-review-btn:hover { border-color: #f5b544; color: #f5b544; }
+.topbar-review-btn.active {
+  background: rgba(245,181,68,0.15); border-color: #f5b544; color: #f5b544;
+}
 .topbar-btn {
   display: flex; align-items: center; gap: 0.4rem;
   background: var(--surface2); border: 1px solid var(--border2);
@@ -194,6 +205,14 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .flag-btn:hover { border-color: #f5b544; color: #f5b544; }
 .flag-btn.flag-active { background: rgba(245,181,68,0.15); border-color: #f5b544; color: #f5b544; }
 .flag-btn.flag-active svg { fill: currentColor; }
+.known-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--muted); cursor: pointer; transition: all 0.15s;
+}
+.known-btn:hover { border-color: var(--green); color: var(--green); }
+.known-btn.known-active { background: rgba(34,197,94,0.15); border-color: var(--green); color: var(--green); }
 
 .q-body { flex: 1; overflow-y: auto; padding: 1.2rem 1.6rem; display: flex; flex-direction: column; gap: 1rem; }
 
@@ -335,6 +354,12 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .nav-btn.flagged::after {
   content: '★'; position: absolute; top: -5px; right: -3px;
   font-size: 0.65rem; color: #f5b544; text-shadow: 0 0 2px rgba(0,0,0,0.6);
+  line-height: 1;
+}
+.nav-btn.known { position: relative; }
+.nav-btn.known::before {
+  content: '✓'; position: absolute; top: 2px; left: 3px;
+  font-size: 0.55rem; font-weight: 700; color: var(--green); text-shadow: none;
   line-height: 1;
 }
 
@@ -562,6 +587,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   <div class="topbar-logo">TCF <span>Canada</span></div>
   <div class="topbar-tag">Compréhension Orale</div>
   <select class="topbar-select" id="level-filter" onchange="doSearch()">
+    <option value="__none__" hidden></option>
     <option value="">Tous les niveaux</option>
     <option value="A1">A1 — 3 pts</option>
     <option value="A2">A2 — 9 pts</option>
@@ -573,6 +599,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   <select class="topbar-select" id="prova-filter" onchange="onProvaChange()" title="Faire un test complet (Q01 à Q39)">
     <option value="">🎯 Test complet...</option>
   </select>
+  <button class="topbar-review-btn" id="review-mode-btn" onclick="toggleReviewMode()" title="Praticar apenas as questões marcadas com ⭐">⭐ Revisar</button>
   <div class="topbar-spacer"></div>
   <div id="progress-wrap" style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
     <div style="font-size:0.75rem;color:var(--muted);white-space:nowrap;" id="progress-label">0 / 0 respondidas</div>
@@ -628,6 +655,9 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
         <button class="flag-btn" id="flag-btn" onclick="toggleFlagCurrent()" title="Marcar para revisar depois">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         </button>
+        <button class="known-btn" id="known-btn" onclick="toggleKnownCurrent()" title="Marcar como decoradas">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></polyline></svg>
+        </button>
         <div class="q-topbar-refs" id="q-topbar-refs"></div>
       </div>
       <div class="q-body" id="q-body">
@@ -657,7 +687,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
         <button class="nav-tab" data-tab="todo" onclick="setTab('todo')">À faire</button>
         <button class="nav-tab" data-tab="done" onclick="setTab('done')">Feitas</button>
         <button class="nav-tab" data-tab="wrong" onclick="setTab('wrong')" id="tab-wrong-btn">Erradas</button>
-        <button class="nav-tab" data-tab="flagged" onclick="setTab('flagged')" id="tab-flagged-btn">⭐ Revisar</button>
+        <button class="nav-tab" data-tab="known" onclick="setTab('known')" id="tab-known-btn">✓ Sei de cor</button>
       </div>
       <div class="selection-bar" id="selection-bar">
         <span class="selection-count" id="selection-count">0 selecionadas</span>
@@ -695,8 +725,11 @@ let filteredQuestions = [];
 let currentIndex = 0;
 let answered = {}; // id -> 'correct' | 'wrong'
 let flagged = {}; // id -> true (marcadas para revisar)
+let known = {}; // id -> true (decoradas)
 let activeTab = 'all';
+let reviewMode = false; // true = mostra apenas as questões marcadas com ⭐, de todos os níveis/testes
 let activeGroup = 'beginner'; // 'beginner' = A1-B1, 'advanced' = B2-C2
+let levelFilterTouched = false; // true quando o usuário escolheu explicitamente algo no "Nível" (inclusive "Tous les niveaux") — nesse caso ele passa a mandar mais que o grupo Iniciante/Avançado
 let selectionMode = false;
 let selectedIds = new Set();
 let selectionAnchor = null;
@@ -792,8 +825,10 @@ function toggleFlagQuestion(id) {
   // Atualiza o botão na grade de navegação sem re-renderizar tudo
   const btn = document.querySelector(`.nav-btn[data-qid="${CSS.escape(id)}"]`);
   if (btn) btn.classList.toggle('flagged', !!flagged[id]);
-  // Se a aba "Marcadas" estiver ativa e a questão foi desmarcada, a lista muda
-  if (activeTab === 'flagged') renderNav();
+  // Atualiza o contador do botão "⭐ Revisar" no topo e, se o modo revisão
+  // estiver ativo, a lista de questões exibidas muda também.
+  updateReviewModeUI();
+  if (reviewMode) renderNav();
 }
 
 function toggleFlagCurrent() {
@@ -804,11 +839,86 @@ function toggleFlagCurrent() {
 }
 
 function updateFlagBtnUI(id) {
-  const btn = document.getElementById('flag-btn');
-  if (!btn) return;
   const on = isFlagged(id);
-  btn.classList.toggle('flag-active', on);
-  btn.title = on ? 'Retirar da revisão' : 'Marcar para revisar depois';
+  document.querySelectorAll('.flag-btn').forEach(btn => {
+    btn.classList.toggle('flag-active', on);
+    btn.title = on ? 'Retirar da revisão' : 'Marcar para revisar depois';
+  });
+}
+
+function updateReviewModeUI() {
+  const btn = document.getElementById('review-mode-btn');
+  if (!btn) return;
+  const count = allQuestions.filter(q => isFlagged(q.id)).length;
+  btn.textContent = count > 0 ? `⭐ Revisar ${count}` : '⭐ Revisar';
+  btn.classList.toggle('active', reviewMode);
+  const resultBtn = document.getElementById('prova-result-btn');
+  // Os outros filtros (nível, grupo, teste completo) continuam ativos e
+  // clicáveis durante o modo revisão: agora eles se combinam com o ⭐,
+  // em vez de serem desligados por ele.
+  if (resultBtn && reviewMode && !activeProva) resultBtn.style.display = 'none';
+}
+
+function toggleReviewMode() {
+  reviewMode = !reviewMode;
+  updateReviewModeUI();
+  currentIndex = 0;
+  navPage = 0;
+  renderNav();
+  const list = getTabFiltered();
+  if (list.length) {
+    showQuestion(0);
+  } else if (reviewMode) {
+    document.getElementById('q-body').innerHTML =
+      '<div style="color:var(--muted);text-align:center;margin-top:3rem;font-size:0.9rem">Nenhuma questão marcada com ⭐ ainda. Marque questões para revisar depois clicando na estrelinha.</div>';
+  }
+}
+
+// ── QUESTÕES QUE VOCÊ JÁ SABE DE COR ──
+const KNOWN_STORAGE_KEY = 'tcf_known';
+
+function saveKnown() {
+  try {
+    localStorage.setItem(KNOWN_STORAGE_KEY, JSON.stringify(known));
+  } catch(e) { /* silently ignore */ }
+}
+
+function loadKnown() {
+  try {
+    const saved = localStorage.getItem(KNOWN_STORAGE_KEY);
+    if (saved) known = JSON.parse(saved);
+  } catch(e) { known = {}; }
+}
+
+function isKnown(id) {
+  return !!known[id];
+}
+
+function toggleKnownQuestion(id) {
+  if (!id) return;
+  if (known[id]) delete known[id];
+  else known[id] = true;
+  saveKnown();
+  updateKnownBtnUI(id);
+  updateTabLabels();
+  const btn = document.querySelector(`.nav-btn[data-qid="${CSS.escape(id)}"]`);
+  if (btn) btn.classList.toggle('known', !!known[id]);
+  if (activeTab === 'known') renderNav();
+}
+
+function toggleKnownCurrent() {
+  const list = getTabFiltered();
+  const q = list[currentIndex];
+  if (!q) return;
+  toggleKnownQuestion(q.id);
+}
+
+function updateKnownBtnUI(id) {
+  const on = isKnown(id);
+  document.querySelectorAll('.known-btn').forEach(btn => {
+    btn.classList.toggle('known-active', on);
+    btn.title = on ? 'Remover marcação de "já sei"' : 'Marcar como decoradas';
+  });
 }
 
 function toggleSelectionMode() {
@@ -1080,7 +1190,9 @@ function doSearch() {
     if (sel) sel.value = '';
     setProvaModeUI(false);
   }
-  const lvl = document.getElementById('level-filter').value;
+  levelFilterTouched = true;
+  let lvl = document.getElementById('level-filter').value;
+  if (lvl === '__none__') lvl = '';
   filteredQuestions = allQuestions.filter(item => {
     const matchLvl = !lvl || item.level === lvl;
     return matchLvl;
@@ -1122,6 +1234,7 @@ function renderNav() {
     if (status === 'correct') btn.classList.add('done');
     else if (status === 'wrong') btn.classList.add('wrong-done');
     if (isFlagged(q.id)) btn.classList.add('flagged');
+    if (isKnown(q.id)) btn.classList.add('known');
     if (globalIdx === currentIndex) btn.classList.add('active');
     if (selectionMode) {
       if (selectedIds.has(q.id)) btn.classList.add('selected');
@@ -1174,21 +1287,32 @@ function updateTabLabels() {
       ? `Erradas ${wrongCount}/${doneCount}`
       : 'Erradas';
   }
-  const flagCount = grouped.filter(q => isFlagged(q.id)).length;
-  const flagBtn = document.getElementById('tab-flagged-btn');
-  if (flagBtn) {
-    flagBtn.textContent = flagCount > 0 ? `⭐ Revisar ${flagCount}` : '⭐ Revisar';
+  updateReviewModeUI();
+  const knownCount = grouped.filter(q => isKnown(q.id)).length;
+  const knownTabBtn = document.getElementById('tab-known-btn');
+  if (knownTabBtn) {
+    knownTabBtn.textContent = knownCount > 0 ? `✓ Sei de cor ${knownCount}` : '✓ Sei de cor';
   }
 }
 
 function getGroupFiltered() {
+  let base;
   if (activeProva) {
-    return getProvaQuestions(activeProva);
+    base = getProvaQuestions(activeProva);
+  } else if (levelFilterTouched) {
+    // O usuário escolheu algo no filtro "Nível" (inclusive "Tous les niveaux"),
+    // então ele manda mais que o grupo Iniciante/Avançado — não restringe mais.
+    base = filteredQuestions;
+  } else {
+    const beginner = ['A1','A2','B1'];
+    const advanced = ['B2','C1','C2'];
+    const levels = activeGroup === 'beginner' ? beginner : advanced;
+    base = filteredQuestions.filter(q => levels.includes(q.level));
   }
-  const beginner = ['A1','A2','B1'];
-  const advanced = ['B2','C1','C2'];
-  const levels = activeGroup === 'beginner' ? beginner : advanced;
-  const filtered = filteredQuestions.filter(q => levels.includes(q.level));
+  if (reviewMode) {
+    base = base.filter(q => isFlagged(q.id));
+  }
+  const filtered = base;
 
   // Ordena por prova, depois por número da questão
   filtered.sort((a, b) => {
@@ -1213,6 +1337,9 @@ function setGroup(group) {
     if (sel) sel.value = '';
     setProvaModeUI(false);
   }
+  levelFilterTouched = false;
+  const levelSel = document.getElementById('level-filter');
+  if (levelSel) levelSel.value = '';
   activeGroup = group;
   currentIndex = 0;
   navPage = 0;
@@ -1244,6 +1371,7 @@ function getTabFiltered() {
   if (activeTab === 'todo') return grouped.filter(q => !answered[q.id]);
   if (activeTab === 'wrong') return grouped.filter(q => answered[q.id] === 'wrong');
   if (activeTab === 'flagged') return grouped.filter(q => isFlagged(q.id));
+  if (activeTab === 'known') return grouped.filter(q => isKnown(q.id));
   return grouped;
 }
 
@@ -1349,21 +1477,22 @@ function setProvaModeUI(active) {
   const groupRow = document.getElementById('group-toggle-row');
   const resultBtn = document.getElementById('prova-result-btn');
   const searchInput = document.getElementById('search');
-  const levelFilter = document.getElementById('level-filter');
   if (groupRow) groupRow.style.opacity = active ? '0.35' : '1';
   if (groupRow) groupRow.style.pointerEvents = active ? 'none' : 'auto';
   if (resultBtn) resultBtn.style.display = active ? 'block' : 'none';
   if (searchInput) searchInput.disabled = active;
-  if (levelFilter) levelFilter.disabled = active;
 }
 
 function onProvaChange() {
   const sel = document.getElementById('prova-filter');
   const val = sel.value;
   provaResultShown = false;
+  const levelSel = document.getElementById('level-filter');
+  levelFilterTouched = false;
   if (!val) {
     activeProva = null;
     setProvaModeUI(false);
+    if (levelSel) levelSel.value = '';
     filteredQuestions = [...allQuestions];
     navPage = 0;
     renderNav();
@@ -1373,6 +1502,7 @@ function onProvaChange() {
   }
   activeProva = parseInt(val, 10);
   setProvaModeUI(true);
+  if (levelSel) levelSel.value = '__none__';
   activeTab = 'all';
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   const allTabBtn = document.querySelector('.nav-tab[data-tab="all"]');
@@ -1506,8 +1636,7 @@ function showQuestion(idx) {
 
   // Para a leitura por voz (TTS) ao trocar de questão
   if (window.speechSynthesis) speechSynthesis.cancel();
-  const ttsBtn = document.getElementById('tts-btn');
-  if (ttsBtn) ttsBtn.classList.remove('tts-active');
+  document.querySelectorAll('.tts-btn').forEach(b => b.classList.remove('tts-active'));
 
   // Header — numeração original da prova
   const qNum = q.question_num || '?';
@@ -1523,6 +1652,8 @@ function showQuestion(idx) {
 
   // Botão de marcar para revisar
   updateFlagBtnUI(q.id);
+  // Botão de marcar como "decoradas"
+  updateKnownBtnUI(q.id);
 
   // Reference tags (top bar, right side)
   const topbarRefs = document.getElementById('q-topbar-refs');
@@ -1816,12 +1947,12 @@ function fmt(s) { return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(
 // ── TTS (Ouvir com IA) ──
 let currentUtterance = null;
 function toggleTTS() {
-  const btn = document.getElementById('tts-btn');
-  if (!btn) return;
+  const btns = document.querySelectorAll('.tts-btn');
+  if (!btns.length) return;
   if (window.speechSynthesis && speechSynthesis.speaking) {
     speechSynthesis.cancel();
     currentUtterance = null;
-    btn.classList.remove('tts-active');
+    btns.forEach(b => b.classList.remove('tts-active'));
     return;
   }
   if (!('speechSynthesis' in window)) {
@@ -1844,9 +1975,9 @@ function toggleTTS() {
   const voices = speechSynthesis.getVoices();
   const frVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('fr'));
   if (frVoice) utter.voice = frVoice;
-  utter.onstart = () => btn.classList.add('tts-active');
-  utter.onend = () => { btn.classList.remove('tts-active'); currentUtterance = null; };
-  utter.onerror = () => { btn.classList.remove('tts-active'); currentUtterance = null; };
+  utter.onstart = () => btns.forEach(b => b.classList.add('tts-active'));
+  utter.onend = () => { btns.forEach(b => b.classList.remove('tts-active')); currentUtterance = null; };
+  utter.onerror = () => { btns.forEach(b => b.classList.remove('tts-active')); currentUtterance = null; };
   currentUtterance = utter;
   speechSynthesis.speak(utter);
 }
@@ -1883,6 +2014,7 @@ window.addEventListener('DOMContentLoaded', function() {
     }
     loadProgress(); // ← carrega histórico salvo
     loadFlagged(); // ← carrega questões marcadas para revisar
+    loadKnown(); // ← carrega questões marcadas como "decoradas"
     const d = EMBEDDED_DATA;
     const byLevel = d.by_level || {};
     allQuestions = [];
