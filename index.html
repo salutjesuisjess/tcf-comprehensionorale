@@ -712,12 +712,12 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 <!-- EMAIL GATE / LOGIN -->
 <div id="email-gate">
   <div class="gate-logo">TCF <span>Canada</span></div>
-  <h1>Acesso restrito</h1>
-  <p id="gate-desc">Este catálogo é de uso pessoal e controlado. Informe seu email para continuar — seu progresso fica salvo e sincronizado na sua conta.</p>
+  <h1>Accès restreint</h1>
+  <p id="gate-desc">Ce catalogue est à usage personnel et contrôlé. Indiquez votre email pour continuer — votre progression est enregistrée et synchronisée sur votre compte.</p>
 
   <div id="gate-form-default">
-    <input type="email" id="gate-email" placeholder="seu@email.com" autocomplete="email">
-    <button id="gate-submit" onclick="submitGateEmail()">Enviar link de acesso</button>
+    <input type="email" id="gate-email" placeholder="votre@email.com" autocomplete="email">
+    <button id="gate-submit" onclick="submitGateEmail()">Envoyer le lien d'accès</button>
     <div class="gate-err" id="gate-error"></div>
 
     <div style="display:flex;align-items:center;gap:0.6rem;width:100%;max-width:300px;margin:0.6rem 0;color:var(--muted);font-size:0.8rem;">
@@ -726,13 +726,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
       <div style="flex:1;height:1px;background:var(--border2);"></div>
     </div>
 
-    <input type="password" id="gate-code" placeholder="Código de acesso" autocomplete="off">
-    <button id="gate-submit-code" onclick="submitGateCode()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);">Entrar com código</button>
+    <input type="password" id="gate-code" placeholder="Code d'accès" autocomplete="off">
+    <button id="gate-submit-code" onclick="submitGateCode()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);">Se connecter avec un code</button>
   </div>
 
   <div id="gate-form-sent" style="display:none;">
-    <p>Link enviado para <strong id="gate-sent-email"></strong>. Abra seu email neste mesmo dispositivo e clique no link para entrar.</p>
-    <button onclick="resetGateForm()" style="background:transparent;border:1px solid var(--border);color:var(--muted);">Usar outro email</button>
+    <p>Lien envoyé à <strong id="gate-sent-email"></strong>. Ouvrez votre email sur cet appareil et cliquez sur le lien pour vous connecter.</p>
+    <button onclick="resetGateForm()" style="background:transparent;border:1px solid var(--border);color:var(--muted);">Utiliser un autre email</button>
   </div>
 </div>
 <script>
@@ -799,7 +799,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
       logAccess('(codigo de acesso)', 'entrada_por_codigo');
       hideGate();
     } else {
-      err.textContent = 'Código incorreto.';
+      err.textContent = 'Code incorrect.';
     }
   };
 
@@ -811,7 +811,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
       var err = document.getElementById('gate-error');
       var email = input.value.trim();
       var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!re.test(email)) { err.textContent = 'Digite um email válido.'; return; }
+      if (!re.test(email)) { err.textContent = 'Veuillez saisir un email valide.'; return; }
       err.textContent = '';
       logAccess(email, 'primeiro_acesso_sem_firebase');
       localStorage.setItem(STORAGE_KEY, email);
@@ -837,11 +837,11 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     var err = document.getElementById('gate-error');
     var email = input.value.trim();
     var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!re.test(email)) { err.textContent = 'Digite um email válido.'; return; }
+    if (!re.test(email)) { err.textContent = 'Veuillez saisir un email valide.'; return; }
     err.textContent = '';
     var btn = document.getElementById('gate-submit');
     btn.disabled = true;
-    btn.textContent = 'Enviando...';
+    btn.textContent = 'Envoi...';
     firebase.auth().sendSignInLinkToEmail(email, actionCodeSettings).then(function () {
       localStorage.setItem(EMAIL_FOR_SIGNIN_KEY, email);
       logAccess(email, 'link_magico_enviado');
@@ -849,9 +849,9 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
       document.getElementById('gate-form-sent').style.display = 'block';
       document.getElementById('gate-sent-email').textContent = email;
     }).catch(function (e) {
-      err.textContent = 'Não foi possível enviar o link (' + e.code + '). Tente novamente.';
+      err.textContent = 'Impossible d\'envoyer le lien (' + e.code + '). Réessayez.';
       btn.disabled = false;
-      btn.textContent = 'Enviar link de acesso';
+      btn.textContent = 'Envoyer le lien d'accès';
     });
   };
 
@@ -860,7 +860,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     document.getElementById('gate-form-default').style.display = 'block';
     var btn = document.getElementById('gate-submit');
     btn.disabled = false;
-    btn.textContent = 'Enviar link de acesso';
+    btn.textContent = 'Envoyer le lien d'accès';
   };
 
   document.getElementById('gate-email').addEventListener('keydown', function (e) {
@@ -875,7 +875,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     var email = localStorage.getItem(EMAIL_FOR_SIGNIN_KEY);
     if (!email) {
       // Link aberto em outro dispositivo/navegador: pede confirmação do email
-      email = window.prompt('Confirme seu email para concluir o login:');
+      email = window.prompt('Confirmez votre email pour terminer la connexion :');
     }
     if (email) {
       firebase.auth().signInWithEmailLink(email, window.location.href).then(function () {
@@ -884,7 +884,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
         // limpa os parâmetros do link mágico da URL
         history.replaceState(null, '', location.origin + location.pathname);
       }).catch(function (e) {
-        document.getElementById('gate-error').textContent = 'Link inválido ou expirado (' + e.code + '). Peça um novo.';
+        document.getElementById('gate-error').textContent = 'Lien invalide ou expiré (' + e.code + '). Demandez-en un nouveau.';
       });
     }
   }
@@ -924,18 +924,18 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
       <select class="topbar-select" id="prova-filter" onchange="onProvaChange()" title="Faire un test complet (Q01 à Q39)">
         <option value="">🎯 Test complet...</option>
       </select>
-      <button class="topbar-review-btn" id="review-mode-btn" onclick="toggleReviewMode()" title="Praticar apenas as questões marcadas com ⭐">⭐ Revisar</button>
+      <button class="topbar-review-btn" id="review-mode-btn" onclick="toggleReviewMode()" title="Pratiquer uniquement les questions marquées avec ⭐">⭐ Réviser</button>
     </div>
   </div>
   <div class="topbar-spacer"></div>
   <div id="account-widget-slot" class="account-widget-slot"></div>
   <div class="topbar-break"></div>
   <div class="progress-row" id="progress-wrap">
-    <div style="font-size:0.75rem;color:var(--muted);white-space:nowrap;" id="progress-label">0 / 0 respondidas</div>
+    <div style="font-size:0.75rem;color:var(--muted);white-space:nowrap;" id="progress-label">0 / 0 répondues</div>
     <div style="width:90px;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;flex-shrink:0;">
       <div id="progress-bar-fill" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width 0.3s;"></div>
     </div>
-    <button class="topbar-btn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema" style="padding:0.3rem 0.6rem;font-size:0.75rem;flex-shrink:0;">☀️</button>
+    <button class="topbar-btn" id="theme-btn" onclick="toggleTheme()" title="Changer de thème" style="padding:0.3rem 0.6rem;font-size:0.75rem;flex-shrink:0;">☀️</button>
   </div>
 </div>
 
@@ -979,10 +979,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
           <div class="q-code" id="q-code">—</div>
         </div>
         <div class="level-pill" id="q-level-pill"></div>
-        <button class="flag-btn" id="flag-btn" onclick="toggleFlagCurrent()" title="Marcar para revisar depois">
+        <button class="flag-btn" id="flag-btn" onclick="toggleFlagCurrent()" title="Marquer pour réviser plus tard">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         </button>
-        <button class="known-btn" id="known-btn" onclick="toggleKnownCurrent()" title="Marcar como decoradas">
+        <button class="known-btn" id="known-btn" onclick="toggleKnownCurrent()" title="Marquer comme mémorisées">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></polyline></svg>
         </button>
         <div class="q-topbar-refs" id="q-topbar-refs"></div>
@@ -1001,8 +1001,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
           <div class="nav-sub" id="nav-sub">—</div>
         </div>
         <div class="nav-header-actions">
-          <button class="topbar-btn" onclick="toggleSelectionMode()" id="sel-mode-btn" title="Selecionar questões para resetar" style="padding:0.3rem 0.55rem;font-size:0.75rem;">☑️</button>
-          <button class="topbar-btn" onclick="clearProgress()" title="Apagar histórico" style="padding:0.3rem 0.55rem;font-size:0.75rem;">🗑️</button>
+          <button class="topbar-btn" onclick="toggleSelectionMode()" id="sel-mode-btn" title="Sélectionner des questions à réinitialiser" style="padding:0.3rem 0.55rem;font-size:0.75rem;">☑️</button>
+          <button class="topbar-btn" onclick="clearProgress()" title="Effacer l'historique" style="padding:0.3rem 0.55rem;font-size:0.75rem;">🗑️</button>
         </div>
       </div>
         <button id="prova-result-btn" onclick="showProvaResult()" style="display:none;margin-top:0.45rem;width:100%;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:0.4rem;font-size:0.72rem;font-weight:700;cursor:pointer;">🏆 Voir le résultat du test</button>
@@ -1020,15 +1020,15 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
       <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">
         <button class="nav-tab active" data-tab="all" onclick="setTab('all')">Toutes</button>
         <button class="nav-tab" data-tab="todo" onclick="setTab('todo')">À faire</button>
-        <button class="nav-tab" data-tab="done" onclick="setTab('done')">Feitas</button>
-        <button class="nav-tab" data-tab="wrong" onclick="setTab('wrong')" id="tab-wrong-btn">Erradas</button>
-        <button class="nav-tab" data-tab="known" onclick="setTab('known')" id="tab-known-btn">✓ Sei de cor</button>
+        <button class="nav-tab" data-tab="done" onclick="setTab('done')">Faites</button>
+        <button class="nav-tab" data-tab="wrong" onclick="setTab('wrong')" id="tab-wrong-btn">Erreurs</button>
+        <button class="nav-tab" data-tab="known" onclick="setTab('known')" id="tab-known-btn">✓ Su par cœur</button>
       </div>
       <div class="selection-bar" id="selection-bar">
-        <span class="selection-count" id="selection-count">0 selecionadas</span>
-        <button class="sel-btn sel-btn-page" id="sel-btn-page" onclick="selectAllOnPage()">Selecionar página</button>
-        <button class="sel-btn sel-btn-cancel" onclick="cancelSelection()">Cancelar</button>
-        <button class="sel-btn sel-btn-reset" onclick="resetSelected()">Resetar</button>
+        <span class="selection-count" id="selection-count">0 sélectionnées</span>
+        <button class="sel-btn sel-btn-page" id="sel-btn-page" onclick="selectAllOnPage()">Sélectionner la page</button>
+        <button class="sel-btn sel-btn-cancel" onclick="cancelSelection()">Annuler</button>
+        <button class="sel-btn sel-btn-reset" onclick="resetSelected()">Réinitialiser</button>
       </div>
       <div class="nav-grid-wrap">
         <div class="nav-grid" id="nav-grid"></div>
@@ -1162,7 +1162,7 @@ function toggleFlagQuestion(id) {
   // Atualiza o botão na grade de navegação sem re-renderizar tudo
   const btn = document.querySelector(`.nav-btn[data-qid="${CSS.escape(id)}"]`);
   if (btn) btn.classList.toggle('flagged', !!flagged[id]);
-  // Atualiza o contador do botão "⭐ Revisar" no topo e, se o modo revisão
+  // Atualiza o contador do botão "⭐ Réviser" no topo e, se o modo revisão
   // estiver ativo, a lista de questões exibidas muda também.
   updateReviewModeUI();
   if (reviewMode) renderNav();
@@ -1179,7 +1179,7 @@ function updateFlagBtnUI(id) {
   const on = isFlagged(id);
   document.querySelectorAll('.flag-btn').forEach(btn => {
     btn.classList.toggle('flag-active', on);
-    btn.title = on ? 'Retirar da revisão' : 'Marcar para revisar depois';
+    btn.title = on ? 'Retirer de la révision' : 'Marquer pour réviser plus tard';
   });
 }
 
@@ -1187,7 +1187,7 @@ function updateReviewModeUI() {
   const btn = document.getElementById('review-mode-btn');
   if (!btn) return;
   const count = allQuestions.filter(q => isFlagged(q.id)).length;
-  btn.textContent = count > 0 ? `⭐ Revisar ${count}` : '⭐ Revisar';
+  btn.textContent = count > 0 ? `⭐ Réviser ${count}` : '⭐ Réviser';
   btn.classList.toggle('active', reviewMode);
   const resultBtn = document.getElementById('prova-result-btn');
   // Os outros filtros (nível, grupo, teste completo) continuam ativos e
@@ -1207,7 +1207,7 @@ function toggleReviewMode() {
     showQuestion(0);
   } else if (reviewMode) {
     document.getElementById('q-body').innerHTML =
-      '<div style="color:var(--muted);text-align:center;margin-top:3rem;font-size:0.9rem">Nenhuma questão marcada com ⭐ ainda. Marque questões para revisar depois clicando na estrelinha.</div>';
+      '<div style="color:var(--muted);text-align:center;margin-top:3rem;font-size:0.9rem">Aucune question marquée avec ⭐ pour l'instant. Marquez des questions à réviser plus tard en cliquant sur l'étoile.</div>';
   }
 }
 
@@ -1255,7 +1255,7 @@ function updateKnownBtnUI(id) {
   const on = isKnown(id);
   document.querySelectorAll('.known-btn').forEach(btn => {
     btn.classList.toggle('known-active', on);
-    btn.title = on ? 'Remover marcação de "já sei"' : 'Marcar como decoradas';
+    btn.title = on ? 'Retirer la marque « je sais déjà »' : 'Marquer comme mémorisées';
   });
 }
 
@@ -1292,7 +1292,7 @@ function cancelSelection() {
 
 function resetSelected() {
   if (selectedIds.size === 0) return;
-  if (!confirm(`Resetar ${selectedIds.size} questão(ões) selecionada(s)?`)) return;
+  if (!confirm(`Réinitialiser ${selectedIds.size} question(s) sélectionnée(s) ?`)) return;
   selectedIds.forEach(id => {
     delete answered[id];
     delete answered[id + '_chosen'];
@@ -1307,7 +1307,7 @@ function resetSelected() {
 
 function updateSelectionCount() {
   const el = document.getElementById('selection-count');
-  if (el) el.textContent = `${selectedIds.size} selecionada(s)`;
+  if (el) el.textContent = `${selectedIds.size} sélectionnée(s)`;
 }
 
 function toggleSelectQuestion(qId) {
@@ -1371,7 +1371,7 @@ function extendSelectionByKeyboard(delta) {
 }
 
 function clearProgress() {
-  if (confirm('Tem certeza que quer apagar todo o histórico de respostas? Esta ação não pode ser desfeita.')) {
+  if (confirm('Voulez-vous vraiment effacer tout l\'historique des réponses ? Cette action est irréversible.')) {
     answered = {};
     localStorage.removeItem(STORAGE_KEY);
     if (window.__tcfSyncToCloud) window.__tcfSyncToCloud(); // também apaga na nuvem
@@ -1380,7 +1380,7 @@ function clearProgress() {
     if (list.length) showQuestion(currentIndex);
     updateProgressBar();
     populateProvaSelect();
-    alert('Histórico apagado!');
+    alert('Historique effacé !');
   }
 }
 
@@ -1473,7 +1473,7 @@ function updateProgressBar() {
   const el = document.getElementById('progress-bar-fill');
   const label = document.getElementById('progress-label');
   if (el) el.style.width = pct + '%';
-  if (label) label.textContent = `${done} / ${total} respondidas (${correct} certas)`;
+  if (label) label.textContent = `${done} / ${total} répondues (${correct} correctes)`;
 }
 
 // ── LOAD ──
@@ -1515,7 +1515,7 @@ function loadJSON(e) {
       renderNav();
       showQuestion(0);
     } catch(err) {
-      alert('Erro ao ler o arquivo JSON.');
+      alert('Erreur lors de la lecture du fichier JSON.');
     }
   };
   reader.readAsText(file, 'utf-8');
@@ -1626,14 +1626,14 @@ function updateTabLabels() {
   const btn = document.getElementById('tab-wrong-btn');
   if (btn) {
     btn.textContent = wrongCount > 0
-      ? `Erradas ${wrongCount}/${doneCount}`
-      : 'Erradas';
+      ? `Erreurs ${wrongCount}/${doneCount}`
+      : 'Erreurs';
   }
   updateReviewModeUI();
   const knownCount = grouped.filter(q => isKnown(q.id)).length;
   const knownTabBtn = document.getElementById('tab-known-btn');
   if (knownTabBtn) {
-    knownTabBtn.textContent = knownCount > 0 ? `✓ Sei de cor ${knownCount}` : '✓ Sei de cor';
+    knownTabBtn.textContent = knownCount > 0 ? `✓ Su par cœur ${knownCount}` : '✓ Su par cœur';
   }
 }
 
@@ -2496,10 +2496,10 @@ window.addEventListener('DOMContentLoaded', function() {
     if (user) {
       el.innerHTML =
         '<span title="' + user.email + '" style="white-space:nowrap;">☁️ ' + user.email.split('@')[0] + '</span>' +
-        '<button class="topbar-btn" onclick="__tcfSignOut()" title="Sair da conta" style="padding:0.3rem 0.5rem;font-size:0.72rem;">Sair</button>';
+        '<button class="topbar-btn" onclick="__tcfSignOut()" title="Se déconnecter" style="padding:0.3rem 0.5rem;font-size:0.72rem;">Déconnexion</button>';
     } else {
       el.innerHTML =
-        '<button class="topbar-btn" onclick="__tcfShowGateAgain()" title="Entrar / sincronizar progresso" style="padding:0.3rem 0.5rem;font-size:0.72rem;">🔒 Entrar</button>';
+        '<button class="topbar-btn" onclick="__tcfShowGateAgain()" title="Se connecter / synchroniser la progression" style="padding:0.3rem 0.5rem;font-size:0.72rem;">🔒 Connexion</button>';
     }
     wrap.appendChild(el);
   }
