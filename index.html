@@ -851,7 +851,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     }).catch(function (e) {
       err.textContent = 'Impossible d\'envoyer le lien (' + e.code + '). Réessayez.';
       btn.disabled = false;
-      btn.textContent = 'Envoyer le lien d'accès';
+      btn.textContent = 'Envoyer le lien d\'accès';
     });
   };
 
@@ -860,7 +860,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     document.getElementById('gate-form-default').style.display = 'block';
     var btn = document.getElementById('gate-submit');
     btn.disabled = false;
-    btn.textContent = 'Envoyer le lien d'accès';
+    btn.textContent = 'Envoyer le lien d\'accès';
   };
 
   document.getElementById('gate-email').addEventListener('keydown', function (e) {
@@ -1207,7 +1207,7 @@ function toggleReviewMode() {
     showQuestion(0);
   } else if (reviewMode) {
     document.getElementById('q-body').innerHTML =
-      '<div style="color:var(--muted);text-align:center;margin-top:3rem;font-size:0.9rem">Aucune question marquée avec ⭐ pour l'instant. Marquez des questions à réviser plus tard en cliquant sur l'étoile.</div>';
+      '<div style="color:var(--muted);text-align:center;margin-top:3rem;font-size:0.9rem">Aucune question marquée avec ⭐ pour l\'instant. Marquez des questions à réviser plus tard en cliquant sur l\'étoile.</div>';
   }
 }
 
